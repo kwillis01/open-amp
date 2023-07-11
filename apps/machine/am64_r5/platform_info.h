@@ -26,7 +26,7 @@ extern "C" {
 #define NORM_SHARED_NCACHE  0x0000000CU /* Non cacheable shareable */
 #define PRIV_RW_USER_RW     (0x00000003U<<8U) /* Full Access */
 
-#define POLL_BASE_ADDR 0xA2160000
+#define MAILBOX_BASE_ADDR DEVICE_SHARED
 
 struct remoteproc_priv {
 	const char *kick_dev_name;

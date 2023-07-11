@@ -21,13 +21,6 @@
 #define KICK_DEV_NAME         "mailbox"
 #define KICK_BUS_NAME         "generic"
 
-/* Cortex R5 memory attributes */
-#define DEVICE_SHARED		0x00000001U /* device, shareable */
-#define DEVICE_NONSHARED	0x00000010U /* device, non shareable */
-#define NORM_NSHARED_NCACHE	0x00000008U /* Non cacheable  non shareable */
-#define NORM_SHARED_NCACHE	0x0000000CU /* Non cacheable shareable */
-#define	PRIV_RW_USER_RW		(0x00000003U<<8U) /* Full Access */
-
 #ifndef SHARED_MEM_PA
 #define SHARED_MEM_PA  0xA2000000UL
 #endif /* !SHARED_MEM_PA */
@@ -45,14 +38,14 @@
 #endif /* !RPMSG_NO_IPI */
 
 /* Polling information used by remoteproc operations */
-static metal_phys_addr_t poll_phys_addr = POLL_BASE_ADDR;
-struct metal_device kick_device = {
-	.name = "KICK_DEV_NAME",
+static metal_phys_addr_t poll_phys_addr = MAILBOX_BASE_ADDR;
+struct metal_device mailbox_device = {
+	.name = KICK_DEV_NAME,
 	.bus = NULL,
 	.num_regions = 1,
 	.regions = {
 		{
-			.virt = (void *)POLL_BASE_ADDR,
+			.virt = (void *)MAILBOX_BASE_ADDR,
 			.physmap = &poll_phys_addr,
 			.size = 0x1000,
 			.page_shift = -1UL,
@@ -78,8 +71,7 @@ static struct remoteproc rproc_inst;
 //extern int init_system(void);
 //extern void cleanup_system(void);
 
-/* processor operations from r5 to a53. It defines
- * notification operation and remote processor managementi operations. */
+/* processor operations from r5 to a53 */
 static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
 						 const struct remoteproc_ops *ops,
 						 void *arg)
@@ -169,18 +161,9 @@ am64_r5_a53_proc_mmap(struct remoteproc *rproc, metal_phys_addr_t *pa,
 
 static int am64_r5_a53_proc_notify(struct remoteproc *rproc, uint32_t id)
 {
-//	struct remoteproc_priv *prproc;
-//
-//	if (!rproc)
-//		return -1;
-//	prproc = rproc->priv;
-
 	(void)rproc;
 
 	// Put message in mailbox
-
-	printf("About to notify mailbox\n");
-
 	if (MailboxSendMessage(AM64_R5FSS1_MAILBOX, 0, id) == 0)
 		printf("Sent on queue 0: %lu\n", id);
 
@@ -214,7 +197,7 @@ platform_create_proc(int proc_index, int rsc_index)
 	rsc_table = get_resource_table(rsc_index, &rsc_size);
 
 	/* Register IPI device */
-	if (metal_register_generic_device(&kick_device))
+	if (metal_register_generic_device(&mailbox_device))
 		return NULL;
 
 	/* Initialize remoteproc instance */
@@ -309,31 +292,6 @@ platform_create_rpmsg_vdev(void *platform, unsigned int vdev_index,
 	shbuf = metal_io_phys_to_virt(shbuf_io,
 				      SHARED_MEM_PA + SHARED_BUF_OFFSET);
 
-
-	uint32_t mailbox_id = *((uint32_t *)0x29040000);
-
-	printf("Mailbox id: 0x%08lx\n", mailbox_id);
-
-//	volatile int x = 1;
-//	while(x)
-//		;
-
-	uintptr_t baseAdd = 0x29040000;
-	uint32_t msg;
-
-	if (MailboxGetMessage(baseAdd, 0, &msg) == MESSAGE_VALID)
-		printf("Reading queue 0: %lu\n", msg);
-	if (MailboxGetMessage(baseAdd, 1, &msg) == MESSAGE_VALID)
-		printf("Reading queue 1: %lu\n", msg);
-	if (MailboxGetMessage(baseAdd, 2, &msg) == MESSAGE_VALID)
-		printf("Reading queue 2: %lu\n", msg);
-
-	printf("About to kick mailbox\n");
-
-	if (MailboxSendMessage(AM64_R5FSS1_MAILBOX, 0, -252) == 0)
-		printf("Sent on queue 2: %d\n", -252);
-
-
 	printf("creating remoteproc virtio\r\n");
 	/* TODO: can we have a wrapper for the following two functions? */
 	vdev = remoteproc_create_virtio(rproc, vdev_index, role, rst_cb);
@@ -368,38 +326,17 @@ err1:
 int platform_poll(void *priv)
 {
 	struct remoteproc *rproc = priv;
-//	struct remoteproc_priv *prproc;
-//	unsigned int flags;
+	uint32_t msg;
 	int ret;
 
-	uintptr_t baseAdd = 0x29040000;
-	uint32_t msg;
-
-//	prproc = rproc->priv;
 	while(1) {
-
-		if (MailboxGetMessage(baseAdd, 1, &msg) == MESSAGE_VALID) {
+		if (MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg) == MESSAGE_VALID) {
 			ret = remoteproc_get_notification(rproc, msg);
-			//ret = remoteproc_get_notification(rproc, RSC_NOTIFY_ID_ANY);
 			if (ret)
 				return ret;
 			break;
 		}
 //		_rproc_wait();
-
-
-//		flags = metal_irq_save_disable();
-//		if (!(atomic_flag_test_and_set(&prproc->ipi_nokick))) {
-//			metal_irq_restore_enable(flags);
-//			ret = remoteproc_get_notification(rproc,
-//							  RSC_NOTIFY_ID_ANY);
-//			if (ret)
-//				return ret;
-//			break;
-//		}
-//		_rproc_wait();
-//		metal_irq_restore_enable(flags);
-
 	}
 	return 0;
 }
