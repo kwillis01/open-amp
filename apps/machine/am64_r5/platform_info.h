@@ -25,8 +25,9 @@ extern "C" {
 #define NORM_NSHARED_NCACHE 0x00000008U /* Non cacheable  non shareable */
 #define NORM_SHARED_NCACHE  0x0000000CU /* Non cacheable shareable */
 #define PRIV_RW_USER_RW     (0x00000003U<<8U) /* Full Access */
+#define MAILBOX_CLUSTER_INTERRUT 98
 
-#define MAILBOX_BASE_ADDR DEVICE_SHARED
+#define MAILBOX_BASE_ADDR AM64_R5FSS1_MAILBOX
 
 struct remoteproc_priv {
 	const char *kick_dev_name;
@@ -36,7 +37,7 @@ struct remoteproc_priv {
 };
 
 extern int messageFlag;
-
+extern uint32_t virtqueue_id;
 /**
  * platform_init - initialize the platform
  *

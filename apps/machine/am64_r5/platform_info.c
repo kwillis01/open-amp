@@ -68,12 +68,25 @@ static struct remoteproc_priv rproc_priv = {
 
 static struct remoteproc rproc_inst;
 int messageFlag = 0;
+uint32_t virtqueue_id = 0;
 
 
 void getMessageISR(void *args){
-	printf("In ISR");
-	messageFlag = 1;
-	HwiP_clearInt(98);
+	uint32_t msg;
+	//printf("In ISR\r\n");
+	
+	MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg);
+
+	if (msg < INT32_MAX)
+	{
+		virtqueue_id |= 1 << msg;
+		messageFlag = 1;
+	}
+	
+	//printf("msg: %li, virtqueue id: %li\r\n", msg, virtqueue_id);
+
+	MailboxClrNewMsgStatus(MAILBOX_BASE_ADDR, 0, 1);
+	HwiP_clearInt(MAILBOX_CLUSTER_INTERRUT);
 }
 
 /* processor operations from r5 to a53 */
@@ -109,7 +122,7 @@ static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
  
     HwiP_Params_init(&hwiParams);
     /* for R5F, interrupt #10 at VIM */
-    hwiParams.intNum = 98; 
+    hwiParams.intNum = MAILBOX_CLUSTER_INTERRUT; 
     /* for M4F, external interrupt #10 at NVIC is 
        16 internal interrupts + external interrupt number at NVIC 
        i.e hwiParams.intNum = 16 + 10; 
@@ -121,6 +134,8 @@ static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
     HwiP_construct(&hwiObj, &hwiParams);
 	HwiP_enable();
 	messageFlag = 0;
+
+	MailboxEnableNewMsgInt(MAILBOX_BASE_ADDR, 0, 1);
 
 	rproc->ops = ops;
 
@@ -187,8 +202,11 @@ static int am64_r5_a53_proc_notify(struct remoteproc *rproc, uint32_t id)
 	(void)rproc;
 
 	// Put message in mailbox
-	if (MailboxSendMessage(AM64_R5FSS1_MAILBOX, 0, id) == 0)
+	if (MailboxSendMessage(MAILBOX_BASE_ADDR, 0, id) == 0)
+	{	
 		printf("Sent on queue 0: %lu\n", id);
+		//HwiP_post(MAILBOX_CLUSTER_INTERRUT);
+	}
 
 	return 0;
 }
@@ -363,12 +381,25 @@ int platform_poll(void *priv)
 		}*/
 		if (messageFlag)
 		{
+			//printf("messageFlag true\r\n");
 			messageFlag = 0;
-			MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg);
-			ret = remoteproc_get_notification(rproc, msg);
-			if (ret)
-				return ret;
-			break;
+			//printf("virtqueue id: %li\r\n", virtqueue_id);
+
+			for (uint32_t i = 0; i < 32; i++)
+			{
+				uint32_t temp = (virtqueue_id & (1 << i));
+				//printf("i: %li, temp: %li\r\n", i, temp);
+				if ((virtqueue_id & (1 << i)) > 0)
+				{
+					
+					virtqueue_id -= virtqueue_id >> i;
+					//printf("virtqueue id: %li\r\n", virtqueue_id);
+					ret = remoteproc_get_notification(rproc, i);
+					if (ret)
+						return ret;
+					break;
+				}
+			}
 		}
 //		_rproc_wait();
 	}
