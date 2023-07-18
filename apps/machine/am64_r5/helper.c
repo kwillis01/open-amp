@@ -19,12 +19,18 @@
 
 #include "helper.h"
 
+#include "r5/kernel/dpl/HwiP.h"
 #include "r5/kernel/dpl/CacheP.h"
 #include "r5/kernel/dpl/MpuP_armv7.h"
 
 /* Place debug trace buffer in special ELF section */
 #define __section_t(S) __attribute__((__section__(#S)))
 #define __log_shared __section_t(.log_shared_mem)
+
+/* ----------- HwiP ----------- */
+HwiP_Config gHwiConfig = {
+    .intcBaseAddr = 0x2FFF0000u,
+};
 
 // global structures used by MPU and cache init code
 CacheP_Config gCacheConfig = { 1, 0 }; // cache on, no forced writethrough

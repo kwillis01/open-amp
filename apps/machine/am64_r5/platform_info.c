@@ -67,7 +67,7 @@ static struct remoteproc_priv rproc_priv = {
 };
 
 static struct remoteproc rproc_inst;
-int messageFlag;
+int messageFlag = 0;
 
 
 void getMessageISR(void *args){
