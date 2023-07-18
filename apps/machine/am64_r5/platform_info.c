@@ -14,6 +14,7 @@
 #include <openamp/rpmsg_virtio.h>
 #include <errno.h>
 
+#include "r5/kernel/dpl/HwiP.h"
 #include "platform_info.h"
 #include "rsc_table.h"
 #include "mailbox.h"
@@ -66,10 +67,14 @@ static struct remoteproc_priv rproc_priv = {
 };
 
 static struct remoteproc rproc_inst;
+int messageFlag;
 
-/* External functions */
-//extern int init_system(void);
-//extern void cleanup_system(void);
+
+void getMessageISR(void *args){
+	printf("In ISR");
+	messageFlag = 1;
+	HwiP_clearInt(98);
+}
 
 /* processor operations from r5 to a53 */
 static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
@@ -98,6 +103,24 @@ static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
 
 //	(void)irq_vect;
 //	metal_io_write32(prproc->kick_io, 0, !POLL_STOP);
+
+	HwiP_Params hwiParams;
+    HwiP_Object hwiObj;
+ 
+    HwiP_Params_init(&hwiParams);
+    /* for R5F, interrupt #10 at VIM */
+    hwiParams.intNum = 98; 
+    /* for M4F, external interrupt #10 at NVIC is 
+       16 internal interrupts + external interrupt number at NVIC 
+       i.e hwiParams.intNum = 16 + 10; 
+     */
+    hwiParams.callback = getMessageISR;
+    hwiParams.args = NULL;
+ 
+	HwiP_init();
+    HwiP_construct(&hwiObj, &hwiParams);
+	HwiP_enable();
+	messageFlag = 0;
 
 	rproc->ops = ops;
 
@@ -329,8 +352,19 @@ int platform_poll(void *priv)
 	uint32_t msg;
 	int ret;
 
+	// mailbox interrupt for getMessage here 
 	while(1) {
+		/*
 		if (MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg) == MESSAGE_VALID) {
+			ret = remoteproc_get_notification(rproc, msg);
+			if (ret)
+				return ret;
+			break;
+		}*/
+		if (messageFlag)
+		{
+			messageFlag = 0;
+			MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg);
 			ret = remoteproc_get_notification(rproc, msg);
 			if (ret)
 				return ret;

@@ -328,7 +328,7 @@ int rproc_virtio_notified(struct virtio_device *vdev, uint32_t notifyid)
 	for (i = 0; i < num_vrings; i++) {
 		vring_info = &vdev->vrings_info[i];
 		if (vring_info->notifyid == notifyid ||
-		    notifyid == RSC_NOTIFY_ID_ANY) {
+		    notifyid == RSC_NOTIFY_ID_ANY || notifyid > INT32_MAX) {
 			vq = vring_info->vq;
 			virtqueue_notification(vq);
 		}

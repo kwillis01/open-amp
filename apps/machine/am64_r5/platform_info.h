@@ -35,6 +35,8 @@ struct remoteproc_priv {
 	struct metal_io_region *kick_io;
 };
 
+int messageFlag = 0;
+
 /**
  * platform_init - initialize the platform
  *

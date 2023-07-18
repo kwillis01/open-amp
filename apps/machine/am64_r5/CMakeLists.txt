@@ -10,6 +10,7 @@ collect (APP_COMMON_SOURCES r5/MpuP_armv7r.c)
 
 collect (APP_INC_DIRS "${CMAKE_CURRENT_SOURCE_DIR}")
 collect (APP_INC_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/r5")
+collect (APP_INC_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/r5/kernel/dpl")
 collect (APP_INC_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/mailbox")
 
 set (_linker_script "${CMAKE_CURRENT_SOURCE_DIR}/linker_remote.ld")
