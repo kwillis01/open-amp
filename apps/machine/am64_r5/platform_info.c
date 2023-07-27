@@ -77,21 +77,16 @@ void getMailboxMessageISR(void *args){
 	struct remoteproc_priv *prproc;
 
 	if (!rproc)
-	{
-		printf("no rproc\r\n");
 		return;
-	}
+
 	prproc = rproc->priv;
 	
-	//atomic_flag_clear(&prproc->ipi_nokick);
+	// get virtqueue number to clear interrupt
 	MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg);
-	printf("msg: %li\r\n", msg);
 
 	if (msg < INT32_MAX)  {
 		virtqueue_id |= 1 << msg;
 		atomic_flag_clear(&prproc->ipi_nokick);
-		messageFlag = 1;
-		printf("messageFlag: %i\r\n", messageFlag);
 	}
 	
 	HwiP_clearInt(MAILBOX_CLUSTER_INTERRUPT);
@@ -107,12 +102,10 @@ static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
 	if (!rproc || !prproc || !ops)
 		return NULL;
 
-	
+	rproc->ops = ops;
 
 	// enable new message interrupt from the mailbox
 	MailboxEnableNewMsgInt(MAILBOX_BASE_ADDR, 0, 1);
-
-	rproc->ops = ops;
 
 	// enable mailbox interrupt for r5f
 	HwiP_Params hwiParams;
@@ -271,7 +264,6 @@ int platform_init(int argc, char *argv[], void **platform)
 		return -EINVAL;
 	}
 	/* Initialize HW system components */
-//	init_system();
 
 	/* Low level abstraction layer for openamp initialization */
 	struct metal_init_params init_param = METAL_INIT_DEFAULTS;
@@ -352,7 +344,6 @@ int platform_poll(void *priv)
 {
 	struct remoteproc *rproc = priv;
 	struct remoteproc_priv *prproc;
-	uint32_t msg;
 	uintptr_t oldIntState;
 	unsigned int flags;
 	int ret;
@@ -368,32 +359,6 @@ int platform_poll(void *priv)
 				break;
 			}
 		#else /* interrupts enabled */
-		/*
-			oldIntState = HwiP_disable();
-			metal_mutex_acquire(&rproc->lock);
-
-			if (messageFlag) {	
-				printf("in if message flag\r\n");
-				messageFlag = 0;
-
-				// find which virtqueue has a message by checking the virtqueue_id bitmask
-				for (uint32_t i = 0; i < 32; i++) {
-					if ((virtqueue_id & (1 << i)) > 0) {
-						virtqueue_id -= virtqueue_id >> i;
-						ret = remoteproc_get_notification(rproc, i);
-
-						if (ret)
-							return ret;
-						break;
-					}
-				}
-			}
-			_rproc_wait();
-			metal_mutex_release(&rproc->lock);
-			HwiP_restore(oldIntState);
-			*/
-			///*
-			
 			oldIntState = HwiP_disable();
 			flags = metal_irq_save_disable();
 			if (!(atomic_flag_test_and_set(&prproc->ipi_nokick))) {
@@ -414,10 +379,7 @@ int platform_poll(void *priv)
 			_rproc_wait();
 			metal_irq_restore_enable(flags);
 			HwiP_restore(oldIntState);
-			
-			//*/
 		#endif
-//		_rproc_wait();
 	}
 	return 0;
 }
