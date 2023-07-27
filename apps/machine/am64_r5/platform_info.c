@@ -71,22 +71,30 @@ int messageFlag = 0;
 uint32_t virtqueue_id = 0;
 
 
-void getMessageISR(void *args){
+void getMailboxMessageISR(void *args){
 	uint32_t msg;
-	//printf("In ISR\r\n");
-	
-	MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg);
+	struct remoteproc *rproc = args;
+	struct remoteproc_priv *prproc;
 
-	if (msg < INT32_MAX)
+	if (!rproc)
 	{
+		printf("no rproc\r\n");
+		return;
+	}
+	prproc = rproc->priv;
+	
+	//atomic_flag_clear(&prproc->ipi_nokick);
+	MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg);
+	printf("msg: %li\r\n", msg);
+
+	if (msg < INT32_MAX)  {
 		virtqueue_id |= 1 << msg;
+		atomic_flag_clear(&prproc->ipi_nokick);
 		messageFlag = 1;
+		printf("messageFlag: %i\r\n", messageFlag);
 	}
 	
-	//printf("msg: %li, virtqueue id: %li\r\n", msg, virtqueue_id);
-
-	MailboxClrNewMsgStatus(MAILBOX_BASE_ADDR, 0, 1);
-	HwiP_clearInt(MAILBOX_CLUSTER_INTERRUT);
+	HwiP_clearInt(MAILBOX_CLUSTER_INTERRUPT);
 }
 
 /* processor operations from r5 to a53 */
@@ -95,54 +103,31 @@ static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
 						 void *arg)
 {
 	struct remoteproc_priv *prproc = arg;
-//	struct metal_device *kick_dev;
-//	unsigned int irq_vect;
-//	int ret;
 
 	if (!rproc || !prproc || !ops)
 		return NULL;
-//	ret = metal_device_open(prproc->kick_dev_bus_name,
-//				prproc->kick_dev_name,
-//				&kick_dev);
-//	if (ret) {
-//		printf("failed to open polling device: %d.\r\n", ret);
-//		return NULL;
-//	}
-//	rproc->priv = prproc;
-//	prproc->kick_dev = kick_dev;
-//	prproc->kick_io = metal_device_io_region(kick_dev, 0);
-//	if (!prproc->kick_io)
-//		goto err1;
 
-//	(void)irq_vect;
-//	metal_io_write32(prproc->kick_io, 0, !POLL_STOP);
+	
 
-	HwiP_Params hwiParams;
-    HwiP_Object hwiObj;
- 
-    HwiP_Params_init(&hwiParams);
-    /* for R5F, interrupt #10 at VIM */
-    hwiParams.intNum = MAILBOX_CLUSTER_INTERRUT; 
-    /* for M4F, external interrupt #10 at NVIC is 
-       16 internal interrupts + external interrupt number at NVIC 
-       i.e hwiParams.intNum = 16 + 10; 
-     */
-    hwiParams.callback = getMessageISR;
-    hwiParams.args = NULL;
- 
-	HwiP_init();
-    HwiP_construct(&hwiObj, &hwiParams);
-	HwiP_enable();
-	messageFlag = 0;
-
+	// enable new message interrupt from the mailbox
 	MailboxEnableNewMsgInt(MAILBOX_BASE_ADDR, 0, 1);
 
 	rproc->ops = ops;
 
+	// enable mailbox interrupt for r5f
+	HwiP_Params hwiParams;
+    HwiP_Object hwiObj;
+ 
+    HwiP_Params_init(&hwiParams);
+    hwiParams.intNum = MAILBOX_CLUSTER_INTERRUPT; 
+    hwiParams.callback = getMailboxMessageISR;
+    hwiParams.args = rproc;
+ 
+	HwiP_init();
+    HwiP_construct(&hwiObj, &hwiParams);
+	HwiP_enable();
+
 	return rproc;
-//err1:
-//	metal_device_close(kick_dev);
-	return NULL;
 }
 
 static void am64_r5_a53_proc_remove(struct remoteproc *rproc)
@@ -205,7 +190,6 @@ static int am64_r5_a53_proc_notify(struct remoteproc *rproc, uint32_t id)
 	if (MailboxSendMessage(MAILBOX_BASE_ADDR, 0, id) == 0)
 	{	
 		printf("Sent on queue 0: %lu\n", id);
-		//HwiP_post(MAILBOX_CLUSTER_INTERRUT);
 	}
 
 	return 0;
@@ -367,40 +351,72 @@ err1:
 int platform_poll(void *priv)
 {
 	struct remoteproc *rproc = priv;
+	struct remoteproc_priv *prproc;
 	uint32_t msg;
+	uintptr_t oldIntState;
+	unsigned int flags;
 	int ret;
 
-	// mailbox interrupt for getMessage here 
-	while(1) {
-		/*
-		if (MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg) == MESSAGE_VALID) {
-			ret = remoteproc_get_notification(rproc, msg);
-			if (ret)
-				return ret;
-			break;
-		}*/
-		if (messageFlag)
-		{
-			//printf("messageFlag true\r\n");
-			messageFlag = 0;
-			//printf("virtqueue id: %li\r\n", virtqueue_id);
+	prproc = rproc->priv;
 
-			for (uint32_t i = 0; i < 32; i++)
-			{
-				uint32_t temp = (virtqueue_id & (1 << i));
-				//printf("i: %li, temp: %li\r\n", i, temp);
-				if ((virtqueue_id & (1 << i)) > 0)
-				{
-					
-					virtqueue_id -= virtqueue_id >> i;
-					//printf("virtqueue id: %li\r\n", virtqueue_id);
-					ret = remoteproc_get_notification(rproc, i);
-					if (ret)
-						return ret;
-					break;
+	while(1) {
+		#ifdef RPMSG_NO_IPI
+			if (MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg) == MESSAGE_VALID) {
+				ret = remoteproc_get_notification(rproc, msg);
+				if (ret)
+					return ret;
+				break;
+			}
+		#else /* interrupts enabled */
+		/*
+			oldIntState = HwiP_disable();
+			metal_mutex_acquire(&rproc->lock);
+
+			if (messageFlag) {	
+				printf("in if message flag\r\n");
+				messageFlag = 0;
+
+				// find which virtqueue has a message by checking the virtqueue_id bitmask
+				for (uint32_t i = 0; i < 32; i++) {
+					if ((virtqueue_id & (1 << i)) > 0) {
+						virtqueue_id -= virtqueue_id >> i;
+						ret = remoteproc_get_notification(rproc, i);
+
+						if (ret)
+							return ret;
+						break;
+					}
 				}
 			}
-		}
+			_rproc_wait();
+			metal_mutex_release(&rproc->lock);
+			HwiP_restore(oldIntState);
+			*/
+			///*
+			
+			oldIntState = HwiP_disable();
+			flags = metal_irq_save_disable();
+			if (!(atomic_flag_test_and_set(&prproc->ipi_nokick))) {
+				metal_irq_restore_enable(flags);
+
+				// find which virtqueue has a message by checking the virtqueue_id bitmask
+				for (uint32_t i = 0; i < 32; i++) {
+					if ((virtqueue_id & (1 << i)) > 0) {
+						virtqueue_id -= virtqueue_id >> i;
+						ret = remoteproc_get_notification(rproc, i);
+
+						if (ret)
+							return ret;
+						break;
+					}
+				}
+			}
+			_rproc_wait();
+			metal_irq_restore_enable(flags);
+			HwiP_restore(oldIntState);
+			
+			//*/
+		#endif
 //		_rproc_wait();
 	}
 	return 0;
