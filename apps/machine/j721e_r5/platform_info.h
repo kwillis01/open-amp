@@ -26,7 +26,8 @@ extern "C" {
 #define NORM_SHARED_NCACHE  0x0000000CU /* Non cacheable shareable */
 #define PRIV_RW_USER_RW     (0x00000003U<<8U) /* Full Access */
 
-#define MAILBOX_BASE_ADDR DEVICE_SHARED
+#define MAILBOX_BASE_ADDR J721E_R5FSS1_MAILBOX
+#define MAILBOX_CLUSTER_INTERRUPT 98
 
 #define KICK_DEV_NAME         "mailbox"
 #define KICK_BUS_NAME         "generic"
@@ -47,11 +48,17 @@ extern "C" {
 #define _rproc_wait() asm volatile("wfi")
 #endif /* !RPMSG_NO_IPI */
 
+extern uint32_t virtqueue_id;
+
 struct remoteproc_priv {
 	const char *kick_dev_name;
 	const char *kick_dev_bus_name;
 	struct metal_device *kick_dev;
 	struct metal_io_region *kick_io;
+
+	#ifndef RPMSG_NO_IPI
+	atomic_int ipi_nokick;
+	#endif
 };
 
 /**

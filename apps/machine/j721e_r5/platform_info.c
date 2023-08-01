@@ -14,6 +14,8 @@
 #include <openamp/rpmsg_virtio.h>
 #include <errno.h>
 
+
+#include "r5/kernel/dpl/HwiP.h"
 #include "platform_info.h"
 #include "rsc_table.h"
 #include "mailbox.h"
@@ -50,9 +52,28 @@ static struct remoteproc_priv rproc_priv = {
 
 static struct remoteproc rproc_inst;
 
-/* External functions */
-//extern int init_system(void);
-//extern void cleanup_system(void);
+#ifndef RPMSG_NO_IPI
+void getMailboxMessageISR(void *args){
+	uint32_t msg;
+	struct remoteproc *rproc = args;
+	struct remoteproc_priv *prproc;
+
+	if (!rproc)
+		return;
+
+	prproc = rproc->priv;
+	
+	// get virtqueue number to clear interrupt
+	MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg);
+
+	if (msg < INT32_MAX)  {
+		virtqueue_id |= 1 << msg;
+		atomic_flag_clear(&prproc->ipi_nokick);
+	}
+	
+	HwiP_clearInt(MAILBOX_CLUSTER_INTERRUPT);
+}
+#endif
 
 /* processor operations from r5 to a72 */
 static struct remoteproc * j721e_r5_a72_proc_init(struct remoteproc *rproc,
@@ -60,29 +81,28 @@ static struct remoteproc * j721e_r5_a72_proc_init(struct remoteproc *rproc,
 						 void *arg)
 {
 	struct remoteproc_priv *prproc = arg;
-//	struct metal_device *kick_dev;
-//	unsigned int irq_vect;
-//	int ret;
-
-	if (!rproc || !prproc || !ops)
+if (!rproc || !prproc || !ops)
 		return NULL;
-//	ret = metal_device_open(prproc->kick_dev_bus_name,
-//				prproc->kick_dev_name,
-//				&kick_dev);
-//	if (ret) {
-//		printf("failed to open polling device: %d.\r\n", ret);
-//		return NULL;
-//	}
-//	rproc->priv = prproc;
-//	prproc->kick_dev = kick_dev;
-//	prproc->kick_io = metal_device_io_region(kick_dev, 0);
-//	if (!prproc->kick_io)
-//		goto err1;
-
-//	(void)irq_vect;
-//	metal_io_write32(prproc->kick_io, 0, !POLL_STOP);
 
 	rproc->ops = ops;
+
+	#ifndef RPMSG_NO_IPI
+	// enable new message interrupt from the mailbox
+	MailboxEnableNewMsgInt(MAILBOX_BASE_ADDR, 0, 1);
+
+	// enable mailbox interrupt for r5f
+	HwiP_Params hwiParams;
+    HwiP_Object hwiObj;
+ 
+    HwiP_Params_init(&hwiParams);
+    hwiParams.intNum = MAILBOX_CLUSTER_INTERRUPT; 
+    hwiParams.callback = getMailboxMessageISR;
+    hwiParams.args = rproc;
+ 
+	HwiP_init();
+    HwiP_construct(&hwiObj, &hwiParams);
+	HwiP_enable();
+	#endif
 
 	return rproc;
 //err1:
@@ -309,17 +329,45 @@ err1:
 int platform_poll(void *priv)
 {
 	struct remoteproc *rproc = priv;
+	struct remoteproc_priv *prproc;
+	uintptr_t oldIntState;
+	unsigned int flags;
 	uint32_t msg;
 	int ret;
 
+	prproc = rproc->priv;
+
 	while(1) {
-		if (MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg) == MESSAGE_VALID) {
-			ret = remoteproc_get_notification(rproc, msg);
-			if (ret)
-				return ret;
-			break;
-		}
-//		_rproc_wait();
+		#ifdef RPMSG_NO_IPI
+			/*
+			if (MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg) == MESSAGE_VALID) {
+				ret = remoteproc_get_notification(rproc, msg);
+				if (ret)
+					return ret;
+				break;
+			}*/
+		#else /* interrupts enabled */
+			oldIntState = HwiP_disable();
+			flags = metal_irq_save_disable();
+			if (!(atomic_flag_test_and_set(&prproc->ipi_nokick))) {
+				metal_irq_restore_enable(flags);
+
+				// find which virtqueue has a message by checking the virtqueue_id bitmask
+				for (uint32_t i = 0; i < 32; i++) {
+					if ((virtqueue_id & (1 << i)) > 0) {
+						virtqueue_id -= virtqueue_id >> i;
+						ret = remoteproc_get_notification(rproc, i);
+
+						if (ret)
+							return ret;
+						break;
+					}
+				}
+			}
+			_rproc_wait();
+			metal_irq_restore_enable(flags);
+			HwiP_restore(oldIntState);
+		#endif
 	}
 	return 0;
 }

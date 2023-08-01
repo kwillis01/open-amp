@@ -64,7 +64,7 @@ struct remote_resource_table __resource resource_table =
         {RING_RX, VRING_ALIGN, VRING_SIZE, 2U, 0U},
 
 	/* trace buffer entry */
-        { RSC_TRACE, (uint32_t)debug_log_memory, DEBUG_LOG_SIZE, 0, "trace:r5fss0_0", },
+        { RSC_TRACE, (uint32_t)debug_log_memory, DEBUG_LOG_SIZE, 0, "trace:r5fss1_0", },
 };
 
 void *get_resource_table (int rsc_id, int *len)
