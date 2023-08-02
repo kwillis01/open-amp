@@ -33,7 +33,7 @@ extern "C" {
 #define KICK_BUS_NAME         "generic"
 
 #ifndef SHARED_MEM_PA
-#define SHARED_MEM_PA  0xA4000000UL
+#define SHARED_MEM_PA  0xA2000000UL
 #endif /* !SHARED_MEM_PA */
 
 #ifndef SHARED_MEM_SIZE

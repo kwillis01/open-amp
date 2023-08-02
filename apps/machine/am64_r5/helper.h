@@ -20,8 +20,8 @@ extern "C" {
  */
 #define DEBUG_LOG_SIZE      ( 4*1024U )
 #define DDR_BASE_ADDR       0x80000000u
-#define RPMSG_BASE_ADDR     0xA6000000u
-#define RSC_TABLE_BASE_ADDR 0xA6100000u
+#define RPMSG_BASE_ADDR     0xA2000000u
+#define RSC_TABLE_BASE_ADDR 0xA2100000u
 
 extern char debug_log_memory[DEBUG_LOG_SIZE];
 
