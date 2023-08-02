@@ -26,20 +26,43 @@ extern "C" {
 #define NORM_SHARED_NCACHE  0x0000000CU /* Non cacheable shareable */
 #define PRIV_RW_USER_RW     (0x00000003U<<8U) /* Full Access */
 #define MAILBOX_CLUSTER_INTERRUPT 98
-
 #define MAILBOX_BASE_ADDR AM64_R5FSS1_MAILBOX
+
+
+#define KICK_DEV_NAME         "mailbox"
+#define KICK_BUS_NAME         "generic"
+
+#ifndef SHARED_MEM_PA
+#define SHARED_MEM_PA  0xA4000000UL
+#endif /* !SHARED_MEM_PA */
+
+#ifndef SHARED_MEM_SIZE
+#define SHARED_MEM_SIZE 0x100000UL
+#endif /* !SHARED_MEM_SIZE */
+
+#ifndef SHARED_BUF_OFFSET
+#define SHARED_BUF_OFFSET 0x8000UL
+#endif /* !SHARED_BUF_OFFSET */
+
+#ifndef RPMSG_NO_IPI
+#define _rproc_wait() asm volatile("wfi")
+#endif /* !RPMSG_NO_IPI */
+
+extern uint32_t virtqueue_id;
 
 struct remoteproc_priv {
 	const char *kick_dev_name;
 	const char *kick_dev_bus_name;
 	struct metal_device *kick_dev;
 	struct metal_io_region *kick_io;
-	atomic_int ipi_nokick;
 
+	#ifndef RPMSG_NO_IPI
+	atomic_int ipi_nokick;
+	#endif
 };
 
-extern int messageFlag;
 extern uint32_t virtqueue_id;
+
 /**
  * platform_init - initialize the platform
  *

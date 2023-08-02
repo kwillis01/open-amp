@@ -25,15 +25,15 @@ extern "C" {
 #define NORM_NSHARED_NCACHE 0x00000008U /* Non cacheable  non shareable */
 #define NORM_SHARED_NCACHE  0x0000000CU /* Non cacheable shareable */
 #define PRIV_RW_USER_RW     (0x00000003U<<8U) /* Full Access */
-
-#define MAILBOX_BASE_ADDR J721E_R5FSS1_MAILBOX
 #define MAILBOX_CLUSTER_INTERRUPT 98
+#define MAILBOX_BASE_ADDR J721E_R5FSS1_MAILBOX
+
 
 #define KICK_DEV_NAME         "mailbox"
 #define KICK_BUS_NAME         "generic"
 
 #ifndef SHARED_MEM_PA
-#define SHARED_MEM_PA  0xA6000000UL
+#define SHARED_MEM_PA  0xA4000000UL
 #endif /* !SHARED_MEM_PA */
 
 #ifndef SHARED_MEM_SIZE
@@ -60,6 +60,8 @@ struct remoteproc_priv {
 	atomic_int ipi_nokick;
 	#endif
 };
+
+extern uint32_t virtqueue_id;
 
 /**
  * platform_init - initialize the platform

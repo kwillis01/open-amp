@@ -39,7 +39,7 @@ MpuP_RegionConfig gMpuRegionConfig[] =
 {
 	// DDR region
 	{
-		.baseAddr = 0x80000000u,
+		.baseAddr = DDR_BASE_ADDR,
 		.size = MpuP_RegionSize_2G,
 		.attrs = {
 			.isEnable = 1,
@@ -54,7 +54,7 @@ MpuP_RegionConfig gMpuRegionConfig[] =
 	},
 	// rpmsg region
 	{
-		.baseAddr = 0xA2000000u,
+		.baseAddr = RPMSG_BASE_ADDR,
 		.size = MpuP_RegionSize_1M,
 		.attrs = {
 			.isEnable = 1,
@@ -70,7 +70,7 @@ MpuP_RegionConfig gMpuRegionConfig[] =
 
 	// resource table region
 	{
-		.baseAddr = 0xA2100000u,
+		.baseAddr = RSC_TABLE_BASE_ADDR,
 		.size = MpuP_RegionSize_4K,
 		.attrs = {
 			.isEnable = 1,

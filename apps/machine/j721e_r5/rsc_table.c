@@ -29,43 +29,33 @@
 #define __section_t(S)          __attribute__((__section__(#S)))
 #define __resource              __section_t(.resource_table)
 
-#define RPMSG_VDEV_DFEATURES        (1 << VIRTIO_RPMSG_F_NS)
-
-/* VirtIO rpmsg device id */
-#define VIRTIO_ID_RPMSG_             7
-
-#define NUM_VRINGS                  0x02
-#define VRING_ALIGN                 0x1000
-#ifndef RING_TX
-#define RING_TX                     FW_RSC_U32_ADDR_ANY
-#endif /* !RING_TX */
-#ifndef RING_RX
-#define RING_RX                     FW_RSC_U32_ADDR_ANY
-#endif /* RING_RX */
-#define VRING_SIZE                  256U
-
 struct remote_resource_table __resource resource_table =
 {
-	/* table header information */
-        1U, /* we're the first version that implements this */
-	NO_RESOURCE_ENTRIES, /* number of entries */
-	{ 0U, 0U, }, /* reserved, must be zero */
-
-	/* offsets to the entries */
-	{
-		offsetof(struct remote_resource_table, rpmsg_vdev),
-		offsetof(struct remote_resource_table, trace),
-	},
-
-        /* vdev entry */
-        { RSC_VDEV, VIRTIO_ID_RPMSG_, 31U, RPMSG_VDEV_DFEATURES, 0U, 0U, 0U, NUM_VRINGS, {0U, 0U}, },
-        /* the two vrings */
-        {RING_TX, VRING_ALIGN, VRING_SIZE, 1U, 0U},
-        {RING_RX, VRING_ALIGN, VRING_SIZE, 2U, 0U},
-
-	/* trace buffer entry */
-        { RSC_TRACE, (uint32_t)debug_log_memory, DEBUG_LOG_SIZE, 0, "trace:r5fss1_0", },
+    {
+        1U,         /* we're the first version that implements this */
+        2U,         /* number of entries, MUST be 2 */
+        { 0U, 0U, } /* reserved, must be zero */
+    },
+    /* offsets to the entries */
+    {
+        offsetof(RPMessage_ResourceTable, vdev),
+        offsetof(RPMessage_ResourceTable, trace),
+    },
+    /* vdev entry */
+    {
+        RPMESSAGE_RSC_TYPE_VDEV, RPMESSAGE_RSC_VIRTIO_ID_RPMSG,
+        0U, 1U, 0U, 0U, 0U, 2U, { 0U, 0U },
+    },
+    /* the two vrings */
+    { RPMESSAGE_RSC_VRING_ADDR_ANY, 4096U, 256U, 1U, 0U },
+    { RPMESSAGE_RSC_VRING_ADDR_ANY, 4096U, 256U, 2U, 0U },
+    {
+        (RPMESSAGE_RSC_TRACE_INTS_VER0 | RPMESSAGE_RSC_TYPE_TRACE),
+        (uint32_t)gDebugMemLog, DebugP_MEM_LOG_SIZE,
+        0, "trace:r5fss0_0",
+    },
 };
+
 
 void *get_resource_table (int rsc_id, int *len)
 {

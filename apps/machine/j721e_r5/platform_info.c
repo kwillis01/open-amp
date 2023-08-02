@@ -14,13 +14,10 @@
 #include <openamp/rpmsg_virtio.h>
 #include <errno.h>
 
-
 #include "r5/kernel/dpl/HwiP.h"
 #include "platform_info.h"
 #include "rsc_table.h"
 #include "mailbox.h"
-
-
 
 /* Polling information used by remoteproc operations */
 static metal_phys_addr_t poll_phys_addr = MAILBOX_BASE_ADDR;
@@ -51,6 +48,7 @@ static struct remoteproc_priv rproc_priv = {
 };
 
 static struct remoteproc rproc_inst;
+uint32_t virtqueue_id = 0;
 
 #ifndef RPMSG_NO_IPI
 void getMailboxMessageISR(void *args){
@@ -105,9 +103,6 @@ if (!rproc || !prproc || !ops)
 	#endif
 
 	return rproc;
-//err1:
-//	metal_device_close(kick_dev);
-	return NULL;
 }
 
 static void j721e_r5_a72_proc_remove(struct remoteproc *rproc)
@@ -167,7 +162,7 @@ static int j721e_r5_a72_proc_notify(struct remoteproc *rproc, uint32_t id)
 	(void)rproc;
 
 	// Put message in mailbox
-	if (MailboxSendMessage(J721E_R5FSS1_MAILBOX, 0, id) == 0)
+	if (MailboxSendMessage(MAILBOX_BASE_ADDR, 0, id) == 0)	
 		printf("Sent on queue 0: %lu\n", id);
 
 	return 0;
@@ -249,7 +244,6 @@ int platform_init(int argc, char *argv[], void **platform)
 		return -EINVAL;
 	}
 	/* Initialize HW system components */
-//	init_system();
 
 	/* Low level abstraction layer for openamp initialization */
 	struct metal_init_params init_param = METAL_INIT_DEFAULTS;
@@ -338,14 +332,13 @@ int platform_poll(void *priv)
 	prproc = rproc->priv;
 
 	while(1) {
-		#ifdef RPMSG_NO_IPI
-			/*
+		#ifdef RPMSG_NO_IPI		
 			if (MailboxGetMessage(MAILBOX_BASE_ADDR, 1, &msg) == MESSAGE_VALID) {
 				ret = remoteproc_get_notification(rproc, msg);
 				if (ret)
 					return ret;
 				break;
-			}*/
+			}
 		#else /* interrupts enabled */
 			oldIntState = HwiP_disable();
 			flags = metal_irq_save_disable();

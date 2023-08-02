@@ -19,25 +19,6 @@
 #include "rsc_table.h"
 #include "mailbox.h"
 
-#define KICK_DEV_NAME         "mailbox"
-#define KICK_BUS_NAME         "generic"
-
-#ifndef SHARED_MEM_PA
-#define SHARED_MEM_PA  0xA2000000UL
-#endif /* !SHARED_MEM_PA */
-
-#ifndef SHARED_MEM_SIZE
-#define SHARED_MEM_SIZE 0x100000UL
-#endif /* !SHARED_MEM_SIZE */
-
-#ifndef SHARED_BUF_OFFSET
-#define SHARED_BUF_OFFSET 0x8000UL
-#endif /* !SHARED_BUF_OFFSET */
-
-#ifndef RPMSG_NO_IPI
-#define _rproc_wait() asm volatile("wfi")
-#endif /* !RPMSG_NO_IPI */
-
 /* Polling information used by remoteproc operations */
 static metal_phys_addr_t poll_phys_addr = MAILBOX_BASE_ADDR;
 struct metal_device mailbox_device = {
@@ -67,10 +48,9 @@ static struct remoteproc_priv rproc_priv = {
 };
 
 static struct remoteproc rproc_inst;
-int messageFlag = 0;
 uint32_t virtqueue_id = 0;
 
-
+#ifndef RPMSG_NO_IPI
 void getMailboxMessageISR(void *args){
 	uint32_t msg;
 	struct remoteproc *rproc = args;
@@ -91,6 +71,7 @@ void getMailboxMessageISR(void *args){
 	
 	HwiP_clearInt(MAILBOX_CLUSTER_INTERRUPT);
 }
+#endif
 
 /* processor operations from r5 to a53 */
 static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
@@ -98,12 +79,12 @@ static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
 						 void *arg)
 {
 	struct remoteproc_priv *prproc = arg;
-
 	if (!rproc || !prproc || !ops)
 		return NULL;
 
 	rproc->ops = ops;
 
+	#ifndef RPMSG_NO_IPI
 	// enable new message interrupt from the mailbox
 	MailboxEnableNewMsgInt(MAILBOX_BASE_ADDR, 0, 1);
 
@@ -119,6 +100,7 @@ static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
 	HwiP_init();
     HwiP_construct(&hwiObj, &hwiParams);
 	HwiP_enable();
+	#endif
 
 	return rproc;
 }
@@ -180,10 +162,8 @@ static int am64_r5_a53_proc_notify(struct remoteproc *rproc, uint32_t id)
 	(void)rproc;
 
 	// Put message in mailbox
-	if (MailboxSendMessage(MAILBOX_BASE_ADDR, 0, id) == 0)
-	{	
+	if (MailboxSendMessage(MAILBOX_BASE_ADDR, 0, id) == 0)	
 		printf("Sent on queue 0: %lu\n", id);
-	}
 
 	return 0;
 }
@@ -346,6 +326,7 @@ int platform_poll(void *priv)
 	struct remoteproc_priv *prproc;
 	uintptr_t oldIntState;
 	unsigned int flags;
+	uint32_t msg;
 	int ret;
 
 	prproc = rproc->priv;

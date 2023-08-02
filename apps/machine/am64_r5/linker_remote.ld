@@ -135,6 +135,11 @@ SECTIONS
 		*(.log_shared_mem*)
 	} > DDR_1
 
+	.resource_table :
+	{
+		*(.resource_table*)
+	} > DDR_0
+
 	.bss :
 	{
 		. = ALIGN(4);
@@ -170,8 +175,5 @@ SECTIONS
 	/* Check if data + heap + stack exceeds RAM limit */
 	ASSERT(__StackLimit >= __HeapLimit, "region TCMA overflowed with stack")
 
-	.resource_table :
-	{
-		*(.resource_table*)
-	} > DDR_0
+	
 }
