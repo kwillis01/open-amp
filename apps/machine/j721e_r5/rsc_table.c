@@ -29,20 +29,6 @@
 #define __section_t(S)          __attribute__((__section__(#S)))
 #define __resource              __section_t(.resource_table)
 
-#define RPMSG_VDEV_DFEATURES        (1 << VIRTIO_RPMSG_F_NS)
-
-/* VirtIO rpmsg device id */
-#define VIRTIO_ID_RPMSG_             7
-
-#define NUM_VRINGS                  0x02
-#define VRING_ALIGN                 0x1000
-#ifndef RING_TX
-#define RING_TX                     FW_RSC_U32_ADDR_ANY
-#endif /* !RING_TX */
-#ifndef RING_RX
-#define RING_RX                     FW_RSC_U32_ADDR_ANY
-#endif /* RING_RX */
-#define VRING_SIZE                  256U
 
 struct remote_resource_table __resource resource_table =
 {
@@ -66,14 +52,6 @@ struct remote_resource_table __resource resource_table =
 	/* trace buffer entry */
         { RSC_TRACE, (uint32_t)debug_log_memory, DEBUG_LOG_SIZE, 0, "trace:r5fss0_0", },
 };
-
-void *get_resource_table (int rsc_id, int *len)
-{
-	(void) rsc_id;
-	*len = sizeof(resource_table);
-	return &resource_table;
-}
-
 
 void *get_resource_table (int rsc_id, int *len)
 {

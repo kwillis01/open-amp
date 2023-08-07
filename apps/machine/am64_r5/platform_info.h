@@ -17,23 +17,30 @@
 extern "C" {
 #endif
 
-#define AM64_R5FSS1_MAILBOX 0x29040000U
-
 /* Cortex R5 memory attributes */
 #define DEVICE_SHARED       0x00000001U /* device, shareable */
 #define DEVICE_NONSHARED    0x00000010U /* device, non shareable */
 #define NORM_NSHARED_NCACHE 0x00000008U /* Non cacheable  non shareable */
 #define NORM_SHARED_NCACHE  0x0000000CU /* Non cacheable shareable */
 #define PRIV_RW_USER_RW     (0x00000003U<<8U) /* Full Access */
-#define MAILBOX_CLUSTER_INTERRUPT 98
-#define MAILBOX_BASE_ADDR AM64_R5FSS1_MAILBOX
+#define DDR_BASE_ADDR       0x80000000u
 
+#define AM64_R5FSS1_0_MAILBOX 0x29040000U
+#define RPMSG_BASE_ADDR     0xA2000000u
+#define RSC_TABLE_BASE_ADDR 0xA2100000u
+
+#define MAILBOX_BASE_ADDR AM64_R5FSS1_0_MAILBOX
+
+#ifndef RPMSG_NO_IPI
+#define MAILBOX_NEW_MSG_INT 98
+#define INT_BASE_ADDR       0x2FFF0000u
+#endif
 
 #define KICK_DEV_NAME         "mailbox"
 #define KICK_BUS_NAME         "generic"
 
 #ifndef SHARED_MEM_PA
-#define SHARED_MEM_PA  0xA2000000UL
+#define SHARED_MEM_PA  RPMSG_BASE_ADDR
 #endif /* !SHARED_MEM_PA */
 
 #ifndef SHARED_MEM_SIZE

@@ -39,7 +39,7 @@ struct metal_device mailbox_device = {
 	.node = {NULL},
 
 	.irq_num = 1,
-	.irq_info = (void *)65,
+	.irq_info = (void *)MAILBOX_NEW_MSG_INT,
 };
 
 static struct remoteproc_priv rproc_priv = {
@@ -69,7 +69,7 @@ void getMailboxMessageISR(void *args){
 		atomic_flag_clear(&prproc->ipi_nokick);
 	}
 	
-	HwiP_clearInt(MAILBOX_CLUSTER_INTERRUPT);
+	HwiP_clearInt(MAILBOX_NEW_MSG_INT);
 }
 #endif
 
@@ -93,7 +93,7 @@ static struct remoteproc * am64_r5_a53_proc_init(struct remoteproc *rproc,
     HwiP_Object hwiObj;
  
     HwiP_Params_init(&hwiParams);
-    hwiParams.intNum = MAILBOX_CLUSTER_INTERRUPT; 
+    hwiParams.intNum = MAILBOX_NEW_MSG_INT; 
     hwiParams.callback = getMailboxMessageISR;
     hwiParams.args = rproc;
  

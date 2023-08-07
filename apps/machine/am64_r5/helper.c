@@ -28,9 +28,11 @@
 #define __log_shared __section_t(.log_shared_mem)
 
 /* ----------- HwiP ----------- */
+#ifndef RPMSG_NO_IPI 
 HwiP_Config gHwiConfig = {
-    .intcBaseAddr = 0x2FFF0000u,
+    .intcBaseAddr = INT_BASE_ADDR,
 };
+#endif
 
 // global structures used by MPU and cache init code
 CacheP_Config gCacheConfig = { 1, 0 }; // cache on, no forced writethrough
