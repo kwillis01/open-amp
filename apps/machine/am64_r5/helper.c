@@ -18,6 +18,7 @@
 #include <metal/alloc.h>
 
 #include "helper.h"
+#include "platform_info.h"
 
 #include "r5/kernel/dpl/HwiP.h"
 #include "r5/kernel/dpl/CacheP.h"
