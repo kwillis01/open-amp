@@ -29,11 +29,11 @@ extern "C" {
 #define DDR_BASE_ADDR       0x80000000u
 #define RPMSG_BASE_ADDR     0xA4000000u
 #define RSC_TABLE_BASE_ADDR 0xA4100000u
+#define MAILBOX_NEW_MSG_INT 98           /* an64 interrupt number for mailbox -- needs to be changed*/
 
 #define MAILBOX_BASE_ADDR   J721E_R5FSS1_0_MAILBOX
 
 #ifndef RPMSG_NO_IPI
-#define MAILBOX_NEW_MSG_INT 98           /* an64 interrupt number for mailbox -- needs to be changed*/
 #define INT_BASE_ADDR       0x2FFF0000u	 /* am64 int base -- needs to be changed */
 #endif
 

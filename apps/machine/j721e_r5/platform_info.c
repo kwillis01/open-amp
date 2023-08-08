@@ -247,6 +247,7 @@ int platform_init(int argc, char *argv[], void **platform)
 
 	/* Low level abstraction layer for openamp initialization */
 	struct metal_init_params init_param = METAL_INIT_DEFAULTS;
+	init_param.log_level = METAL_LOG_DEBUG;
 	metal_init(&init_param);
 
 
